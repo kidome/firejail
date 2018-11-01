@@ -40,9 +40,6 @@
 # define PR_SET_NO_NEW_PRIVS 38
 #endif
 
-#ifdef HAVE_APPARMOR
-#include <sys/apparmor.h>
-#endif
 #include <syscall.h>
 
 
@@ -745,7 +742,7 @@ int sandbox(void* sandbox_arg) {
 	bool need_preload = arg_trace || arg_tracelog || arg_seccomp_postexec;
 	// for --appimage, --chroot and --overlay* we replace the seccomp filter with the default one
 	// we also drop all capabilities
-	if (getuid() != 0 && (arg_appimage || cfg.chrootdir || arg_overlay)) {
+	if (getuid() != 0 && ( cfg.chrootdir || arg_overlay)) {
 		enforce_filters();
 		need_preload = arg_trace || arg_tracelog;
 		arg_seccomp = 1;
@@ -841,27 +838,18 @@ int sandbox(void* sandbox_arg) {
 	}
 
 	// private-bin is disabled for appimages
-	if (arg_private_bin && !arg_appimage) {
+	if (arg_private_bin ){
 		if (cfg.chrootdir)
 			fwarning("private-bin feature is disabled in chroot\n");
 		else if (arg_overlay)
 			fwarning("private-bin feature is disabled in overlay\n");
 		else {
-			// for --x11=xorg we need to add xauth command
-			if (arg_x11_xorg) {
-				EUID_USER();
-				char *tmp;
-				if (asprintf(&tmp, "%s,xauth", cfg.bin_private_keep) == -1)
-					errExit("asprintf");
-				cfg.bin_private_keep = tmp;
-				EUID_ROOT();
-			}
 			fs_private_bin_list();
 		}
 	}
 
 	// private-lib is disabled for appimages
-	if (arg_private_lib && !arg_appimage) {
+	if (arg_private_lib ){
 		if (cfg.chrootdir)
 			fwarning("private-lib feature is disabled in chroot\n");
 		else if (arg_overlay)
@@ -931,33 +919,6 @@ int sandbox(void* sandbox_arg) {
 	// ... followed by blacklist commands
 	fs_blacklist(); // mkdir and mkfile are processed all over again
 
-	//****************************
-	// nosound/no3d/notv/novideo and fix for pulseaudio 7.0
-	//****************************
-	if (arg_nosound) {
-		// disable pulseaudio
-		pulseaudio_disable();
-
-		// disable /dev/snd
-		fs_dev_disable_sound();
-	}
-	else if (!arg_noautopulse)
-		pulseaudio_init();
-
-	if (arg_no3d)
-		fs_dev_disable_3d();
-
-	if (arg_notv)
-		fs_dev_disable_tv();
-
-	if (arg_nodvd)
-		fs_dev_disable_dvd();
-
-	if (arg_nou2f)
-	        fs_dev_disable_u2f();
-
-	if (arg_novideo)
-		fs_dev_disable_video();
 
 	//****************************
 	// install trace
@@ -1020,10 +981,7 @@ int sandbox(void* sandbox_arg) {
 	}
 
 	EUID_ROOT();
-	// clean /tmp/.X11-unix sockets
-	fs_x11();
-	if (arg_x11_xorg)
-		x11_xorg();
+
 
 	//****************************
 	// set security filters
@@ -1142,18 +1100,6 @@ int sandbox(void* sandbox_arg) {
 		errExit("fork");
 
 	if (app_pid == 0) {
-#ifdef HAVE_APPARMOR
-		if (checkcfg(CFG_APPARMOR) && arg_apparmor) {
-			errno = 0;
-			if (aa_change_onexec("firejail-default")) {
-				fwarning("Cannot confine the application using AppArmor.\n"
-					"Maybe firejail-default AppArmor profile is not loaded into the kernel.\n"
-					"As root, run \"aa-enforce firejail-default\" to load it.\n");
-			}
-			else if (arg_debug)
-				printf("AppArmor enabled\n");
-		}
-#endif
 		// set rlimits
 		set_rlimits();
 

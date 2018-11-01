@@ -20,7 +20,6 @@
 #include "firejail.h"
 #include <dirent.h>
 #include <sys/stat.h>
-extern char *xephyr_screen;
 
 #define MAX_READ 8192				  // line buffer for profile files
 
@@ -138,7 +137,6 @@ int profile_check_conditional(char *ptr, int lineno, const char *fname) {
 		size_t len;	// length of name
 		bool value;	// true if set
 	} conditionals[] = {
-		{"HAS_APPIMAGE", strlen("HAS_APPIMAGE"), arg_appimage!=0},
 		NULL
 	}, *cond = conditionals;
 	char *tmp = ptr, *msg = NULL;
@@ -234,16 +232,6 @@ int profile_check_line(char *ptr, int lineno, const char *fname) {
 		return 0;
 	}
 
-	if (strncmp(ptr, "xephyr-screen ", 14) == 0) {
-#ifdef HAVE_X11
-		if (checkcfg(CFG_X11)) {
-			xephyr_screen = ptr + 14;
-		}
-		else
-			warning_feature_disabled("x11");
-#endif
-		return 0;
-	}
 	// mkdir
 	if (strncmp(ptr, "mkdir ", 6) == 0) {
 		fs_mkdir(ptr + 6);
@@ -353,36 +341,8 @@ int profile_check_line(char *ptr, int lineno, const char *fname) {
 		arg_nogroups = 1;
 		return 0;
 	}
-	else if (strcmp(ptr, "nosound") == 0) {
-		arg_nosound = 1;
-		return 0;
-	}
-	else if (strcmp(ptr, "noautopulse") == 0) {
-		arg_noautopulse = 1;
-		return 0;
-	}
-	else if (strcmp(ptr, "notv") == 0) {
-		arg_notv = 1;
-		return 0;
-	}
-	else if (strcmp(ptr, "nodvd") == 0) {
-		arg_nodvd = 1;
-		return 0;
-	}
-	else if (strcmp(ptr, "novideo") == 0) {
-		arg_novideo = 1;
-		return 0;
-	}
-	else if (strcmp(ptr, "no3d") == 0) {
-		arg_no3d = 1;
-		return 0;
-	}
 	else if (strcmp(ptr, "nodbus") == 0) {
 		arg_nodbus = 1;
-		return 0;
-	}
-	else if (strcmp(ptr, "nou2f") == 0) {
-	        arg_nou2f = 1;
 		return 0;
 	}
 	else if (strcmp(ptr, "netfilter") == 0) {
@@ -682,13 +642,6 @@ int profile_check_line(char *ptr, int lineno, const char *fname) {
 		return 0;
 	}
 
-	if (strcmp(ptr, "apparmor") == 0) {
-#ifdef HAVE_APPARMOR
-		arg_apparmor = 1;
-#endif
-		return 0;
-	}
-
 	if (strncmp(ptr, "protocol ", 9) == 0) {
 #ifdef HAVE_SECCOMP
 		if (checkcfg(CFG_SECCOMP)) {
@@ -902,96 +855,6 @@ int profile_check_line(char *ptr, int lineno, const char *fname) {
 		return 0;
 	}
 
-	if (strcmp(ptr, "x11 none") == 0) {
-		arg_x11_block = 1;
-		return 0;
-	}
-
-	if (strcmp(ptr, "x11 xephyr") == 0) {
-#ifdef HAVE_X11
-		if (checkcfg(CFG_X11)) {
-			char *x11env = getenv("FIREJAIL_X11");
-			if (x11env && strcmp(x11env, "yes") == 0) {
-				return 0;
-			}
-			else {
-				// start x11
-				x11_start_xephyr(cfg.original_argc, cfg.original_argv);
-				exit(0);
-			}
-		}
-		else
-			warning_feature_disabled("x11");
-#endif
-		return 0;
-	}
-
-	if (strcmp(ptr, "x11 xorg") == 0) {
-#ifdef HAVE_X11
-		if (checkcfg(CFG_X11))
-			arg_x11_xorg = 1;
-		else
-			warning_feature_disabled("x11");
-#endif
-		return 0;
-	}
-
-	if (strcmp(ptr, "x11 xpra") == 0) {
-#ifdef HAVE_X11
-		if (checkcfg(CFG_X11)) {
-			char *x11env = getenv("FIREJAIL_X11");
-			if (x11env && strcmp(x11env, "yes") == 0) {
-				return 0;
-			}
-			else {
-				// start x11
-				x11_start_xpra(cfg.original_argc, cfg.original_argv);
-				exit(0);
-			}
-		}
-		else
-			warning_feature_disabled("x11");
-#endif
-		return 0;
-	}
-
-	if (strcmp(ptr, "x11 xvfb") == 0) {
-#ifdef HAVE_X11
-		if (checkcfg(CFG_X11)) {
-			char *x11env = getenv("FIREJAIL_X11");
-			if (x11env && strcmp(x11env, "yes") == 0) {
-				return 0;
-			}
-			else {
-				// start x11
-				x11_start_xvfb(cfg.original_argc, cfg.original_argv);
-				exit(0);
-			}
-		}
-		else
-			warning_feature_disabled("x11");
-#endif
-		return 0;
-	}
-
-	if (strcmp(ptr, "x11") == 0) {
-#ifdef HAVE_X11
-		if (checkcfg(CFG_X11)) {
-			char *x11env = getenv("FIREJAIL_X11");
-			if (x11env && strcmp(x11env, "yes") == 0) {
-				return 0;
-			}
-			else {
-				// start x11
-				x11_start(cfg.original_argc, cfg.original_argv);
-				exit(0);
-			}
-		}
-		else
-			warning_feature_disabled("x11");
-#endif
-		return 0;
-	}
 
 	// private /etc list of files and directories
 	if (strncmp(ptr, "private-etc ", 12) == 0) {

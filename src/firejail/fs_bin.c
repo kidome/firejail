@@ -31,8 +31,6 @@ static char *paths[] = {
 	"/usr/local/bin",
 	"/usr/bin",
 	"/bin",
-	"/usr/games",
-	"/usr/local/games",
 	"/usr/local/sbin",
 	"/usr/sbin",
 	"/sbin",

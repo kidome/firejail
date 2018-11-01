@@ -30,10 +30,8 @@
 // filesystem
 #define RUN_FIREJAIL_BASEDIR	"/run"
 #define RUN_FIREJAIL_DIR	"/run/firejail"
-#define RUN_FIREJAIL_APPIMAGE_DIR	"/run/firejail/appimage"
 #define RUN_FIREJAIL_NAME_DIR	"/run/firejail/name" // also used in src/lib/pid.c - todo: move it in a common place
 #define RUN_FIREJAIL_LIB_DIR		"/run/firejail/lib"
-#define RUN_FIREJAIL_X11_DIR	"/run/firejail/x11"
 #define RUN_FIREJAIL_NETWORK_DIR	"/run/firejail/network"
 #define RUN_FIREJAIL_BANDWIDTH_DIR	"/run/firejail/bandwidth"
 #define RUN_FIREJAIL_PROFILE_DIR		"/run/firejail/profile"
@@ -51,7 +49,6 @@
 #define RUN_OPT_DIR	"/run/firejail/mnt/opt"
 #define RUN_SRV_DIR	"/run/firejail/mnt/srv"
 #define RUN_BIN_DIR	"/run/firejail/mnt/bin"
-#define RUN_PULSE_DIR	"/run/firejail/mnt/pulse"
 #define RUN_LIB_DIR	"/run/firejail/mnt/lib"
 #define RUN_LIB_FILE	"/run/firejail/mnt/libfiles"
 #define RUN_DNS_ETC	"/run/firejail/mnt/dns-etc"
@@ -73,7 +70,6 @@
 #define RUN_DEV_DIR		"/run/firejail/mnt/dev"
 #define RUN_DEVLOG_FILE	"/run/firejail/mnt/devlog"
 
-#define RUN_WHITELIST_X11_DIR	"/run/firejail/mnt/orig-x11"
 #define RUN_WHITELIST_HOME_DIR	"/run/firejail/mnt/orig-home"	// default home directory masking
 #define RUN_WHITELIST_RUN_DIR	"/run/firejail/mnt/orig-run"	// default run directory masking
 #define RUN_WHITELIST_HOME_USER_DIR	"/run/firejail/mnt/orig-home-user"	// home directory whitelisting
@@ -88,9 +84,6 @@
 #define RUN_WHITELIST_SHARE_DIR   "/run/firejail/mnt/orig-share"
 #define RUN_WHITELIST_MODULE_DIR   "/run/firejail/mnt/orig-module"
 
-#define RUN_XAUTHORITY_FILE	"/run/firejail/mnt/.Xauthority"
-#define RUN_XAUTHORITY_SEC_FILE	"/run/firejail/mnt/sec.Xauthority"
-#define RUN_ASOUNDRC_FILE	"/run/firejail/mnt/.asoundrc"
 #define RUN_HOSTNAME_FILE	"/run/firejail/mnt/hostname"
 #define RUN_HOSTS_FILE	"/run/firejail/mnt/hosts"
 #define RUN_RESOLVCONF_FILE	"/run/firejail/mnt/resolv.conf"
@@ -360,10 +353,6 @@ extern int arg_private_tmp;	// private tmp directory
 extern int arg_private_lib;	// private lib directory
 extern int arg_scan;		// arp-scan all interfaces
 extern int arg_whitelist;	// whitelist commad
-extern int arg_nosound;	// disable sound
-extern int arg_noautopulse; // disable automatic ~/.config/pulse init
-extern int arg_novideo; //disable video devices in /dev
-extern int arg_no3d;		// disable 3d hardware acceleration
 extern int arg_quiet;		// no output for scripting
 extern int arg_join_network;	// join only the network namespace
 extern int arg_join_filesystem;	// join only the mount namespace
@@ -374,13 +363,9 @@ extern int arg_writable_var;	// writable var
 extern int arg_keep_var_tmp; // don't overwrite /var/tmp
 extern int arg_writable_run_user;	// writable /run/user
 extern int arg_writable_var_log; // writable /var/log
-extern int arg_appimage;	// appimage
 extern int arg_audit;		// audit
 extern char *arg_audit_prog;	// audit
-extern int arg_apparmor;	// apparmor
 extern int arg_allow_debuggers;	// allow debuggers
-extern int arg_x11_block;	// block X11
-extern int arg_x11_xorg;	// use X11 security extention
 extern int arg_allusers;	// all user home directories visible
 extern int arg_machineid;	// preserve /etc/machine-id
 extern int arg_disable_mnt;	// disable /mnt and /media
@@ -578,12 +563,6 @@ void dbg_test_dir(const char *dir);
 // fs_dev.c
 void fs_dev_shm(void);
 void fs_private_dev(void);
-void fs_dev_disable_sound(void);
-void fs_dev_disable_3d(void);
-void fs_dev_disable_video(void);
-void fs_dev_disable_tv(void);
-void fs_dev_disable_dvd(void);
-void fs_dev_disable_u2f(void);
 
 // fs_home.c
 // private mode (--private)
@@ -681,10 +660,6 @@ void env_ibus_load(void);
 // fs_whitelist.c
 void fs_whitelist(void);
 
-// pulseaudio.c
-void pulseaudio_init(void);
-void pulseaudio_disable(void);
-
 // fs_bin.c
 void fs_private_bin_list(void);
 
@@ -720,25 +695,6 @@ int program_in_path(const char *program);
 void fs_mkdir(const char *name);
 void fs_mkfile(const char *name);
 
-// x11.c
-
-// X11 display range as assigned by --x11 options
-//     We try display numbers in the range 21 through 1000.
-//     Normal X servers typically use displays in the 0-10 range;
-//     ssh's X11 forwarding uses 10-20, and login screens
-//     (e.g. gdm3) may use displays above 1000.
-#define X11_DISPLAY_START 21
-#define X11_DISPLAY_END 1000
-
-void fs_x11(void);
-int x11_display(void);
-void x11_start(int argc, char **argv);
-void x11_start_xpra(int argc, char **argv);
-void x11_start_xephyr(int argc, char **argv);
-void x11_block(void);
-void x11_start_xvfb(int argc, char **argv);
-void x11_xorg(void);
-
 // ls.c
 enum {
 	SANDBOX_FS_LS = 0,
@@ -752,7 +708,6 @@ void sandboxfs(int op, pid_t pid, const char *path1, const char *path2);
 #define DEFAULT_ARP_PROBES 2
 enum {
 	CFG_FILE_TRANSFER = 0,
-	CFG_X11,
 	CFG_BIND,
 	CFG_USERNS,
 	CFG_CHROOT,
@@ -761,7 +716,6 @@ enum {
 	CFG_RESTRICTED_NETWORK,
 	CFG_FORCE_NONEWPRIVS,
 	CFG_WHITELIST,
-	CFG_XEPHYR_WINDOW_TITLE,
 	CFG_OVERLAYFS,
 	CFG_PRIVATE_HOME,
 	CFG_PRIVATE_BIN_NO_LOCAL,
@@ -770,33 +724,17 @@ enum {
 	CFG_DISABLE_MNT,
 	CFG_JOIN,
 	CFG_ARP_PROBES,
-	CFG_XPRA_ATTACH,
 	CFG_PRIVATE_LIB,
-	CFG_APPARMOR,
 	CFG_DBUS,
 	CFG_PRIVATE_CACHE,
 	CFG_MAX // this should always be the last entry
 };
-extern char *xephyr_screen;
-extern char *xephyr_extra_params;
-extern char *xpra_extra_params;
-extern char *xvfb_screen;
-extern char *xvfb_extra_params;
 extern char *netfilter_default;
 int checkcfg(int val);
 void print_compiletime_support(void);
 
-// appimage.c
-void appimage_set(const char *appimage_path);
-void appimage_clear(void);
-const char *appimage_getdir(void);
-
-// appimage_size.c
-long unsigned int appimage2_size(const char *fname);
-
 // cmdline.c
 void build_cmdline(char **command_line, char **window_title, int argc, char **argv, int index);
-void build_appimage_cmdline(char **command_line, char **window_title, int argc, char **argv, int index, char *apprun_path);
 
 // sbox.c
 // programs
@@ -844,7 +782,6 @@ int sbox_run(unsigned filter, int num, ...);
 void delete_run_files(pid_t pid);
 void delete_bandwidth_run_file(pid_t pid);
 void set_name_run_file(pid_t pid);
-void set_x11_run_file(pid_t pid, int display);
 void set_profile_run_file(pid_t pid, const char *fname);
 
 // dbus.c

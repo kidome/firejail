@@ -37,9 +37,6 @@ typedef struct liblist_t {
 } LibList;
 
 static LibList libc_list[] = {
-	{ "libselinux.so.", 0 },
-	{ "libapparmor.so.", 0},
-	{ "ld-linux-x86-64.so.", 0 },
 	{ "libanl.so.", 0 },
 	{ "libc.so.", 0 },
 	{ "libcidn.so.", 0 },
@@ -147,69 +144,6 @@ SysLib syslibs[] = {
 		""	// message
 	},
 #endif
-	{ // pixmaps - libraries used by GTK to display application menu icons
-		"libgdk_pixbuf-2.0",	// library
-		0, 0,	// len and found flag
-		"gdk-pixbuf-2.0",	// dir1
-		"",	// dir2
-		"GdkPixbuf"	// message
-	},
-	{ // GTK2
-		"libgtk-x11-2.0",	// library
-		0, 0,	// len and found flag
-		"gtk-2.0",	// dir1
-		"libgtk2.0-0",	// dir2
-		"GTK2"	// message
-	},
-	{ // GTK3
-		"libgtk-3",	// library
-		0, 0,	// len and found flag
-		"gtk-3.0",	// dir1
-		"libgtk-3-0",	// dir2
-		"GTK3"	// message
-	},
-	{ // Pango - text internationalization, found on older GTK2-based systems
-		"libpango",	// library
-		0, 0,	// len and found flag
-		"pango",	// dir1
-		"",	// dir2
-		"Pango"	// message
-	},
-	{ // Library for handling GObject introspection data on GTK systems
-		"libgirepository-1.0",	// library
-		0, 0,	// len and found flag
-		"girepository-1.0",	// dir1
-		"",	// dir2
-		"GIRepository"	// message
-	},
-	{ // GIO
-		"libgio",	// library
-		0, 0,	// len and found flag
-		"gio",	// dir1
-		"",	// dir2
-		"GIO"	// message
-	},
-	{ // Enchant speller
-		"libenchant.so.",	// library
-		0, 0,	// len and found flag
-		"enchant",	// dir1
-		"",	// dir2
-		"Enchant (speller)"	// message
-	},
-	{ // Qt5 - lots of problems on Arch Linux, Qt5 version 5.9.1 - disabled in all apps profiles
-		"libQt5",	// library
-		0, 0,	// len and found flag
-		"qt5",	// dir1
-		"gdk-pixbuf-2.0",	// dir2
-		"Qt5, GdkPixbuf"	// message
-	},
-	{ // Qt4
-		"libQtCore",	// library
-		0, 0,	// len and found flag
-		"qt4",	// dir1
-		"gdk-pixbuf-2.0",	// dir2
-		"Qt4"	// message
-	},
 
 	{ // NULL terminated list
 		NULL,	// library

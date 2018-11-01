@@ -799,8 +799,6 @@ static void disable_config(void) {
 		disable_file(BLACKLIST_FILE, RUN_FIREJAIL_BANDWIDTH_DIR);
 	if (stat(RUN_FIREJAIL_NAME_DIR, &s) == 0)
 		disable_file(BLACKLIST_FILE, RUN_FIREJAIL_NAME_DIR);
-	if (stat(RUN_FIREJAIL_X11_DIR, &s) == 0)
-		disable_file(BLACKLIST_FILE, RUN_FIREJAIL_X11_DIR);
 }
 
 
@@ -1362,22 +1360,6 @@ void fs_check_chroot_dir(const char *rootdir) {
 	free(name);
 #endif
 
-	// check x11 socket directory
-	if (getenv("FIREJAIL_X11")) {
-		dir = "tmp/.X11-unix";
-		fd = openat(parentfd, dir, O_PATH|O_CLOEXEC);
-		if (fd == -1) {
-			if (errno == ENOENT)
-				goto error1;
-			else
-				goto error2;
-		}
-		if (fstat(fd, &s) == -1)
-			errExit("fstat");
-		if (!S_ISDIR(s.st_mode) || s.st_uid != 0)
-			goto error3;
-		close(fd);
-	}
 
 	close(parentfd);
 	return;
@@ -1407,18 +1389,6 @@ void fs_chroot(const char *rootdir) {
 	if (mount("/dev", newdev, NULL, MS_BIND|MS_REC, NULL) < 0)
 		errExit("mounting /dev");
 	free(newdev);
-
-	// x11
-	if (getenv("FIREJAIL_X11")) {
-		char *newx11;
-		if (asprintf(&newx11, "%s/tmp/.X11-unix", rootdir) == -1)
-			errExit("asprintf");
-		if (arg_debug)
-			printf("Mounting /tmp/.X11-unix on %s\n", newx11);
-		if (mount("/tmp/.X11-unix", newx11, NULL, MS_BIND|MS_REC, NULL) < 0)
-			errExit("mounting /tmp/.X11-unix");
-		free(newx11);
-	}
 
 	// some older distros don't have a /run directory
 	// create one by default
@@ -1544,32 +1514,6 @@ void fs_private_tmp(void) {
 		if (rp)
 			free(rp);
 	}
-
-	// whitelist x11 directory
-	profile_add("whitelist /tmp/.X11-unix");
-
-	// whitelist any pulse* file in /tmp directory
-	// some distros use PulseAudio sockets under /tmp instead of the socket in /urn/user
-	DIR *dir;
-	if (!(dir = opendir("/tmp"))) {
-		// sleep 2 seconds and try again
-		sleep(2);
-		if (!(dir = opendir("/tmp"))) {
-			return;
-		}
-	}
-
-	struct dirent *entry;
-	while ((entry = readdir(dir))) {
-		if (strncmp(entry->d_name, "pulse-", 6) == 0) {
-			char *cmd;
-			if (asprintf(&cmd, "whitelist /tmp/%s", entry->d_name) == -1)
-				errExit("asprintf");
-			profile_add(cmd); // profile_add does not duplicate the string
-		}
-	}
-	closedir(dir);
-
 
 }
 

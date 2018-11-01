@@ -31,189 +31,6 @@
 #include <grp.h>
 //#include <ftw.h>
 
-static void skel(const char *homedir, uid_t u, gid_t g) {
-	char *fname;
-
-	// zsh
-	if (!arg_shell_none && (strcmp(cfg.shell,"/usr/bin/zsh") == 0 || strcmp(cfg.shell,"/bin/zsh") == 0)) {
-		// copy skel files
-		if (asprintf(&fname, "%s/.zshrc", homedir) == -1)
-			errExit("asprintf");
-		struct stat s;
-		// don't copy it if we already have the file
-		if (stat(fname, &s) == 0)
-			return;
-		if (is_link(fname)) { // stat on dangling symlinks fails, try again using lstat
-			fprintf(stderr, "Error: invalid %s file\n", fname);
-			exit(1);
-		}
-		if (stat("/etc/skel/.zshrc", &s) == 0) {
-			copy_file_as_user("/etc/skel/.zshrc", fname, u, g, 0644); // regular user
-			fs_logger("clone /etc/skel/.zshrc");
-			fs_logger2("clone", fname);
-		}
-		else {
-			touch_file_as_user(fname, 0644);
-			fs_logger2("touch", fname);
-		}
-		free(fname);
-	}
-	// csh
-	else if (!arg_shell_none && strcmp(cfg.shell,"/bin/csh") == 0) {
-		// copy skel files
-		if (asprintf(&fname, "%s/.cshrc", homedir) == -1)
-			errExit("asprintf");
-		struct stat s;
-
-		// don't copy it if we already have the file
-		if (stat(fname, &s) == 0)
-			return;
-		if (is_link(fname)) { // stat on dangling symlinks fails, try again using lstat
-			fprintf(stderr, "Error: invalid %s file\n", fname);
-			exit(1);
-		}
-		if (stat("/etc/skel/.cshrc", &s) == 0) {
-			copy_file_as_user("/etc/skel/.cshrc", fname, u, g, 0644); // regular user
-			fs_logger("clone /etc/skel/.cshrc");
-			fs_logger2("clone", fname);
-		}
-		else {
-			touch_file_as_user(fname, 0644);
-			fs_logger2("touch", fname);
-		}
-		free(fname);
-	}
-	// bash etc.
-	else {
-		// copy skel files
-		if (asprintf(&fname, "%s/.bashrc", homedir) == -1)
-			errExit("asprintf");
-		struct stat s;
-		// don't copy it if we already have the file
-		if (stat(fname, &s) == 0)
-			return;
-		if (is_link(fname)) { // stat on dangling symlinks fails, try again using lstat
-			fprintf(stderr, "Error: invalid %s file\n", fname);
-			exit(1);
-		}
-		if (stat("/etc/skel/.bashrc", &s) == 0) {
-			copy_file_as_user("/etc/skel/.bashrc", fname, u, g, 0644); // regular user
-			fs_logger("clone /etc/skel/.bashrc");
-			fs_logger2("clone", fname);
-		}
-		free(fname);
-	}
-}
-
-static int store_xauthority(void) {
-	// put a copy of .Xauthority in XAUTHORITY_FILE
-	char *src;
-	char *dest = RUN_XAUTHORITY_FILE;
-	// create an empty file as root, and change ownership to user
-	FILE *fp = fopen(dest, "w");
-	if (fp) {
-		fprintf(fp, "\n");
-		SET_PERMS_STREAM(fp, getuid(), getgid(), 0600);
-		fclose(fp);
-	}
-
-	if (asprintf(&src, "%s/.Xauthority", cfg.homedir) == -1)
-		errExit("asprintf");
-
-	struct stat s;
-	if (stat(src, &s) == 0) {
-		if (is_link(src)) {
-			fwarning("invalid .Xauthority file\n");
-			return 0;
-		}
-
-		copy_file_as_user(src, dest, getuid(), getgid(), 0600); // regular user
-		fs_logger2("clone", dest);
-		return 1; // file copied
-	}
-
-	return 0;
-}
-
-static int store_asoundrc(void) {
-	// put a copy of .Xauthority in XAUTHORITY_FILE
-	char *src;
-	char *dest = RUN_ASOUNDRC_FILE;
-	// create an empty file as root, and change ownership to user
-	FILE *fp = fopen(dest, "w");
-	if (fp) {
-		fprintf(fp, "\n");
-		SET_PERMS_STREAM(fp, getuid(), getgid(), 0644);
-		fclose(fp);
-	}
-
-	if (asprintf(&src, "%s/.asoundrc", cfg.homedir) == -1)
-		errExit("asprintf");
-
-	struct stat s;
-	if (stat(src, &s) == 0) {
-		if (is_link(src)) {
-			// make sure the real path of the file is inside the home directory
-			/* coverity[toctou] */
-			char* rp = realpath(src, NULL);
-			if (!rp) {
-				fprintf(stderr, "Error: Cannot access %s\n", src);
-				exit(1);
-			}
-			if (strncmp(rp, cfg.homedir, strlen(cfg.homedir)) != 0) {
-				fprintf(stderr, "Error: .asoundrc is a symbolic link pointing to a file outside home directory\n");
-				exit(1);
-			}
-			free(rp);
-		}
-
-		copy_file_as_user(src, dest, getuid(), getgid(), 0644); // regular user
-		fs_logger2("clone", dest);
-		return 1; // file copied
-	}
-
-	return 0;
-}
-
-static void copy_xauthority(void) {
-	// copy XAUTHORITY_FILE in the new home directory
-	char *src = RUN_XAUTHORITY_FILE ;
-	char *dest;
-	if (asprintf(&dest, "%s/.Xauthority", cfg.homedir) == -1)
-		errExit("asprintf");
-
-	// if destination is a symbolic link, exit the sandbox!!!
-	if (is_link(dest)) {
-		fprintf(stderr, "Error: %s is a symbolic link\n", dest);
-		exit(1);
-	}
-
-	copy_file_as_user(src, dest, getuid(), getgid(), S_IRUSR | S_IWUSR); // regular user
-	fs_logger2("clone", dest);
-
-	// delete the temporary file
-	unlink(src);
-}
-
-static void copy_asoundrc(void) {
-	// copy XAUTHORITY_FILE in the new home directory
-	char *src = RUN_ASOUNDRC_FILE ;
-	char *dest;
-	if (asprintf(&dest, "%s/.asoundrc", cfg.homedir) == -1)
-		errExit("asprintf");
-
-	// if destination is a symbolic link, exit the sandbox!!!
-	if (is_link(dest)) {
-		fprintf(stderr, "Error: %s is a symbolic link\n", dest);
-		exit(1);
-	}
-
-	copy_file_as_user(src, dest, getuid(), getgid(), S_IRUSR | S_IWUSR); // regular user
-	fs_logger2("clone", dest);
-
-	// delete the temporary file
-	unlink(src);
-}
 
 // private mode (--private=homedir):
 // 	mount homedir on top of /home/user,
@@ -225,9 +42,6 @@ void fs_private_homedir(void) {
 	char *private_homedir = cfg.home_private;
 	assert(homedir);
 	assert(private_homedir);
-
-	int xflag = store_xauthority();
-	int aflag = store_asoundrc();
 
 	uid_t u = getuid();
 	gid_t g = getgid();
@@ -284,11 +98,6 @@ void fs_private_homedir(void) {
 	}
 
 
-	skel(homedir, u, g);
-	if (xflag)
-		copy_xauthority();
-	if (aflag)
-		copy_asoundrc();
 }
 
 // private mode (--private):
@@ -301,9 +110,6 @@ void fs_private(void) {
 	assert(homedir);
 	uid_t u = getuid();
 	gid_t g = getgid();
-
-	int xflag = store_xauthority();
-	int aflag = store_asoundrc();
 
 	// mask /home
 	if (arg_debug)
@@ -340,12 +146,6 @@ void fs_private(void) {
 		fs_logger2("mkdir", homedir);
 		fs_logger2("tmpfs", homedir);
 	}
-
-	skel(homedir, u, g);
-	if (xflag)
-		copy_xauthority();
-	if (aflag)
-		copy_asoundrc();
 
 }
 
@@ -476,9 +276,6 @@ void fs_private_home_list(void) {
 	assert(homedir);
 	assert(private_list);
 
-	int xflag = store_xauthority();
-	int aflag = store_asoundrc();
-
 	uid_t uid = getuid();
 	gid_t gid = getgid();
 
@@ -527,12 +324,6 @@ void fs_private_home_list(void) {
 		if (mount("tmpfs", "/home", "tmpfs", MS_NOSUID | MS_NODEV | MS_STRICTATIME | MS_REC,  "mode=755,gid=0") < 0)
 			errExit("mounting home directory");
 	}
-
-	skel(homedir, uid, gid);
-	if (xflag)
-		copy_xauthority();
-	if (aflag)
-		copy_asoundrc();
 
 	if (!arg_quiet)
 		fprintf(stderr, "Home directory installed in %0.2f ms\n", timetrace_end());

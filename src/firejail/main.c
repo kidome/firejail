@@ -94,10 +94,6 @@ int arg_private_tmp = 0;			// private tmp directory
 int arg_private_lib = 0;			// private lib directory
 int arg_scan = 0;				// arp-scan all interfaces
 int arg_whitelist = 0;				// whitelist commad
-int arg_nosound = 0;				// disable sound
-int arg_noautopulse = 0;			// disable automatic ~/.config/pulse init
-int arg_novideo = 0;			//disable video devices in /dev
-int arg_no3d;					// disable 3d hardware acceleration
 int arg_quiet = 0;				// no output for scripting
 int arg_join_network = 0;			// join only the network namespace
 int arg_join_filesystem = 0;			// join only the mount namespace
@@ -108,13 +104,9 @@ int arg_writable_var = 0;			// writable var
 int arg_keep_var_tmp = 0;                       // don't overwrite /var/tmp
 int arg_writable_run_user = 0;			// writable /run/user
 int arg_writable_var_log = 0;		// writable /var/log
-int arg_appimage = 0;				// appimage
 int arg_audit = 0;				// audit
 char *arg_audit_prog = NULL;			// audit
-int arg_apparmor = 0;				// apparmor
 int arg_allow_debuggers = 0;			// allow debuggers
-int arg_x11_block = 0;				// block X11
-int arg_x11_xorg = 0;				// use X11 security extention
 int arg_allusers = 0;				// all user home directories visible
 int arg_machineid = 0;				// preserve /etc/machine-id
 int arg_allow_private_blacklist = 0; 		// blacklist things in private directories
@@ -152,7 +144,6 @@ static void myexit(int rv) {
 	// delete sandbox files in shared memory
 	EUID_ROOT();
 	delete_run_files(sandbox_pid);
-	appimage_clear();
 	flush_stdin();
 	exit(rv);
 }
@@ -341,40 +332,6 @@ static void run_cmd_and_exit(int i, int argc, char **argv) {
 		exit(0);
 	}
 #endif
-#ifdef HAVE_X11
-	else if (strcmp(argv[i], "--x11") == 0) {
-		if (checkcfg(CFG_X11)) {
-			x11_start(argc, argv);
-			exit(0);
-		}
-		else
-			exit_err_feature("x11");
-	}
-	else if (strcmp(argv[i], "--x11=xpra") == 0) {
-		if (checkcfg(CFG_X11)) {
-			x11_start_xpra(argc, argv);
-			exit(0);
-		}
-		else
-			exit_err_feature("x11");
-	}
-	else if (strcmp(argv[i], "--x11=xephyr") == 0) {
-		if (checkcfg(CFG_X11)) {
-			x11_start_xephyr(argc, argv);
-			exit(0);
-		}
-		else
-			exit_err_feature("x11");
-	}
-	else if (strcmp(argv[i], "--x11=xvfb") == 0) {
-		if (checkcfg(CFG_X11)) {
-			x11_start_xvfb(argc, argv);
-			exit(0);
-		}
-		else
-			exit_err_feature("x11");
-	}
-#endif
 #ifdef HAVE_NETWORK
 	else if (strncmp(argv[i], "--bandwidth=", 12) == 0) {
 		if (checkcfg(CFG_NETWORK)) {
@@ -520,16 +477,6 @@ static void run_cmd_and_exit(int i, int argc, char **argv) {
 		// join sandbox by pid or by name
 		pid_t pid = require_pid(argv[i] + 12);
 		cpu_print_filter(pid);
-		exit(0);
-	}
-	else if (strncmp(argv[i], "--apparmor.print=", 17) == 0) {
-		// join sandbox by pid or by name
-		pid_t pid = require_pid(argv[i] + 17);
-		char *pidstr;
-		if (asprintf(&pidstr, "%u", pid) == -1)
-			errExit("asprintf");
-		sbox_run(SBOX_USER| SBOX_CAPS_NONE | SBOX_SECCOMP, 3, PATH_FIREMON, "--apparmor", pidstr);
-		free(pidstr);
 		exit(0);
 	}
 	else if (strncmp(argv[i], "--caps.print=", 13) == 0) {
@@ -1100,24 +1047,8 @@ int main(int argc, char **argv) {
 
 
 		//*************************************
-		// x11
-		//*************************************
-
-#ifdef HAVE_X11
-		else if (strncmp(argv[i], "--xephyr-screen=", 16) == 0) {
-			if (checkcfg(CFG_X11))
-				; // the processing is done directly in x11.c
-			else
-				exit_err_feature("x11");
-		}
-#endif
-		//*************************************
 		// filtering
 		//*************************************
-#ifdef HAVE_APPARMOR
-		else if (strcmp(argv[i], "--apparmor") == 0)
-			arg_apparmor = 1;
-#endif
 #ifdef HAVE_SECCOMP
 		else if (strncmp(argv[i], "--protocol=", 11) == 0) {
 			if (checkcfg(CFG_SECCOMP)) {
@@ -1776,20 +1707,6 @@ int main(int argc, char **argv) {
 			env_store(argv[i] + 6, SETENV);
 		else if (strncmp(argv[i], "--rmenv=", 8) == 0)
 			env_store(argv[i] + 8, RMENV);
-		else if (strcmp(argv[i], "--nosound") == 0)
-			arg_nosound = 1;
-		else if (strcmp(argv[i], "--noautopulse") == 0)
-			arg_noautopulse = 1;
-		else if (strcmp(argv[i], "--novideo") == 0)
-			arg_novideo = 1;
-		else if (strcmp(argv[i], "--no3d") == 0)
-			arg_no3d = 1;
-		else if (strcmp(argv[i], "--notv") == 0)
-			arg_notv = 1;
-		else if (strcmp(argv[i], "--nodvd") == 0)
-			arg_nodvd = 1;
-		else if (strcmp(argv[i], "--nou2f") == 0)
-			arg_nou2f = 1;
 		else if (strcmp(argv[i], "--nodbus") == 0)
 			arg_nodbus = 1;
 
@@ -2171,8 +2088,6 @@ int main(int argc, char **argv) {
 			}
 			arg_audit = 1;
 		}
-		else if (strcmp(argv[i], "--appimage") == 0)
-			arg_appimage = 1;
 		else if (strcmp(argv[i], "--shell=none") == 0) {
 			arg_shell_none = 1;
 			if (cfg.shell) {
@@ -2221,18 +2136,6 @@ int main(int argc, char **argv) {
 			}
 		}
 
-		// unlike all other x11 features, this is available always
-		else if (strcmp(argv[i], "--x11=none") == 0) {
-			arg_x11_block = 1;
-		}
-#ifdef HAVE_X11
-		else if (strcmp(argv[i], "--x11=xorg") == 0) {
-			if (checkcfg(CFG_X11))
-				arg_x11_xorg = 1;
-			else
-				exit_err_feature("x11");
-		}
-#endif
 		else if (strncmp(argv[i], "--join-or-start=", 16) == 0) {
 			// NOTE: this is second part of option handler,
 			//		 atempt to find and join sandbox is done in other one
@@ -2264,16 +2167,7 @@ int main(int argc, char **argv) {
 			}
 
 			// we have a program name coming
-			if (arg_appimage) {
-				cfg.command_name = strdup(argv[i]);
-				if (!cfg.command_name)
-					errExit("strdup");
-
-				// disable shell=* for appimages
-				arg_shell_none = 0;
-			}
-			else
-				extract_command_name(i, argv);
+			extract_command_name(i, argv);
 			prog_index = i;
 			break;
 		}
@@ -2342,15 +2236,7 @@ int main(int argc, char **argv) {
 		cfg.window_title = cfg.shell;
 		cfg.command_name = cfg.shell;
 	}
-	else if (arg_appimage) {
-		if (arg_debug)
-			printf("Configuring appimage environment\n");
-		appimage_set(cfg.command_name);
-		build_appimage_cmdline(&cfg.command_line, &cfg.window_title, argc, argv, prog_index, cfg.command_line);
-	}
-	else {
-		build_cmdline(&cfg.command_line, &cfg.window_title, argc, argv, prog_index);
-	}
+	build_cmdline(&cfg.command_line, &cfg.window_title, argc, argv, prog_index);
 /*	else {
 		fprintf(stderr, "Error: command must be specified when --shell=none used.\n");
 		exit(1);
@@ -2385,10 +2271,6 @@ int main(int argc, char **argv) {
 			fmessage("\n** Note: you can use --noprofile to disable %s.profile **\n\n", profile_name);
 	}
 	EUID_ASSERT();
-
-	// block X11 sockets
-	if (arg_x11_block)
-		x11_block();
 
 	// check network configuration options - it will exit if anything went wrong
 	net_check_cfg();
@@ -2444,9 +2326,6 @@ int main(int argc, char **argv) {
 	}
 	if (cfg.name)
 		set_name_run_file(sandbox_pid);
-	int display = x11_display();
-	if (display > 0)
-		set_x11_run_file(sandbox_pid, display);
 	if (lockfd_directory != -1) {
 		flock(lockfd_directory, LOCK_UN);
 		close(lockfd_directory);
@@ -2561,25 +2440,6 @@ int main(int argc, char **argv) {
 		 		ptr += strlen(ptr);
 		 	}
 
-		 	//  add audio group
-		 	g = get_group_id("audio");
-		 	if (g) {
-		 		sprintf(ptr, "%d %d 1\n", g, g);
-		 		ptr += strlen(ptr);
-		 	}
-
-		 	//  add video group
-		 	g = get_group_id("video");
-		 	if (g) {
-		 		sprintf(ptr, "%d %d 1\n", g, g);
-		 		ptr += strlen(ptr);
-		 	}
-
-		 	//  add games group
-		 	g = get_group_id("games");
-		 	if (g) {
-		 		sprintf(ptr, "%d %d 1\n", g, g);
-		 	}
 		 }
 
  		EUID_ROOT();
